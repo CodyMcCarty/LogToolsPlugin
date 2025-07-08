@@ -6,38 +6,42 @@ DEFINE_LOG_CATEGORY(LogSandGame);
 
 FString USandCoreLogToolsBPLibrary::GetCallerContext(const UObject* WorldContextObject, const FString& Message, const TCHAR* Function)
 {
-	FString Result = FString::Printf(TEXT("[%s] | \"%s\"\t | %s"),
-		*BuildPieRole(WorldContextObject),
-		*Message,
-		*BuildStackInfoWithLabel(WorldContextObject, Function));
-	return Result;
+	if (WorldContextObject)
+	{
+		FString Result = FString::Printf(TEXT("[%s] | \"%s\"\t | %s"),
+			*BuildPieRole(WorldContextObject),
+			*Message,
+			*BuildStackInfoWithLabel(WorldContextObject, Function));
+		return Result;
+	}
+	return Message;
 }
 
 FString USandCoreLogToolsBPLibrary::BuildPieRole(const UObject* WorldContextObject)
 {
-	FString ResultPieContextStr = TEXT("Invalid");
+	FString Result = TEXT("Invalid");
 
 #if WITH_EDITOR
 
 	if (!GIsEditor)
 	{
-		return ResultPieContextStr;
+		return Result;
 	}
 
 	if (WorldContextObject == nullptr)
 	{
-		ResultPieContextStr = TEXT("Not in a play world");
-		return ResultPieContextStr;
+		Result = TEXT("Not in a play world");
+		return Result;
 	}
 
 	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
 	if (World == nullptr)
 	{
-		ResultPieContextStr = TEXT("(World Being Created)");
+		Result = TEXT("(World Being Created)");
 	}
 	else if (World->WorldType == EWorldType::Editor)
 	{
-		ResultPieContextStr = TEXT("Editor");
+		Result = TEXT("Editor");
 	}
 	else if (World->IsGameWorld())
 	{
@@ -46,19 +50,19 @@ FString USandCoreLogToolsBPLibrary::BuildPieRole(const UObject* WorldContextObje
 		switch (World->GetNetMode())
 		{
 		case NM_Standalone:
-			ResultPieContextStr = TEXT("Standalone");
+			Result = TEXT("Standalone");
 			break;
 		case NM_ListenServer:
-			ResultPieContextStr = TEXT("Server L");
+			Result = TEXT("Server L");
 			break;
 		case NM_DedicatedServer:
-			ResultPieContextStr = TEXT("Server D");
+			Result = TEXT("Server D");
 			break;
 		case NM_Client:
 			{
 				//~ use either UE::GetPlayInEditorID() or GPlayInEditorID depending on the UE version.
 				const int32 PieNum = WorldContext ? WorldContext->PIEInstance : UE::GetPlayInEditorID();
-				ResultPieContextStr = FString::Printf(TEXT("Client %d"), PieNum);
+				Result = FString::Printf(TEXT("Client %d"), PieNum);
 			}
 			break;
 		default:
@@ -67,13 +71,13 @@ FString USandCoreLogToolsBPLibrary::BuildPieRole(const UObject* WorldContextObje
 
 		if (WorldContext && !WorldContext->CustomDescription.IsEmpty())
 		{
-			ResultPieContextStr += TEXT(" ") + WorldContext->CustomDescription;
+			Result += TEXT(" ") + WorldContext->CustomDescription;
 		}
 	}
 
 #endif
 
-	return ResultPieContextStr;
+	return Result;
 }
 
 FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* WorldContextObject, const TCHAR* Function)
@@ -87,10 +91,10 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 			double PlayRequestStartTime = SessionInfo->PlayRequestStartTime;
 			// ... */
 
-	FStringBuilderBase Result; // todo reserve
-	Result.Append(Function);
+	TStringBuilder<256> Result; // todo reserve
+	Result << TEXT("Cpp: ") << Function;
 
-	Result.Append(TEXT(" | "));
+	Result.Append(TEXT(" | Label: "));
 	if (!WorldContextObject)
 	{
 		Result.Append(TEXT("Label Unavailable"));
@@ -104,6 +108,7 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 		}
 		else if (const AActor* TypedOuter = WorldContextObject->GetTypedOuter<AActor>(); ensure(TypedOuter))
 		{
+			// todo: it should be able to find the TypedOuter, when can it not?
 			Result.Append(TypedOuter->GetActorNameOrLabel());
 		}
 		else
@@ -112,16 +117,17 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 		}
 	}
 
-	Result.Append(TEXT(" | "));
-	if (FBlueprintContextTracker::Get().GetCurrentScriptStack().IsEmpty())
+	Result.Append(TEXT(" | BP: "));
+	const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
+	if (ScriptStack.IsEmpty())
 	{
 		Result.Append(TEXT("EmptyBPStack"));
 	}
 	else
 	{
-		const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
 		//~ NOTE: ScriptStack.Last()->Node->GetPackage()->GetFName(); //"/Game/BP_MyActor"
 		//~ NOTE: WorldContextObject->GetClass()->GetFName(); //"BP_MyActor_C"
+		//~ NOTE: ScriptStack.Last()->Node->GetOuter()->GetName();
 		if (!ScriptStack.Last()->Node->GetName().Contains(TEXT("ExecuteUbergraph")))
 		{
 			Result << ScriptStack.Last()->Node->GetPackage()->GetFName() << TEXT("..") << ScriptStack.Last()->Node->GetName();
@@ -147,13 +153,14 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING //~ Do not Print in Shipping or Test unless explicitly enabled.
 	// todo: test with USE_LOGGING_IN_SHIPPING
-	FStringBuilderBase Result;
+	TStringBuilder<512> Result;
 	Result << TEXT("[") << BuildPieRole(WorldContextObject) << TEXT("]");
 
 	Result << TEXT(" | \"") << Message.ToString() << TEXT("\"\t");
 
-	Result.Append(TEXT(" | "));
-	if (FBlueprintContextTracker::Get().GetCurrentScriptStack().IsEmpty())
+	Result.Append(TEXT(" | BP: "));
+	const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
+	if (ScriptStack.IsEmpty())
 	{
 		if (WorldContextObject)
 		{
@@ -161,12 +168,11 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 		}
 		else
 		{
-			Result.Append(TEXT("Label Unavailable"));
+			Result.Append(TEXT("Empty BP stack"));
 		}
 	}
 	else
 	{
-		const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
 		if (!ScriptStack.Last()->Node->GetName().Contains(TEXT("ExecuteUbergraph")))
 		{
 			Result << ScriptStack.Last()->Node->GetPackage()->GetFName() << TEXT("..") << ScriptStack.Last()->Node->GetName();
@@ -181,7 +187,7 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 		}
 	}
 
-	Result.Append(TEXT(" | "));
+	Result.Append(TEXT(" | Label: "));
 	if (!WorldContextObject)
 	{
 		Result.Append(TEXT("Label Unavailable"));
@@ -203,13 +209,13 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 		}
 	}
 
-	Result.Append(TEXT(" | "));
+	Result.Append(TEXT(" | Cpp: "));
 	FString LastCppCall(TEXT("No Useful Symbol"));
 	{
 		constexpr int32 MaxDepth = 32;
 		uint64 BackTrace[MaxDepth] = {0};
 		const int32 Depth = FPlatformStackWalk::CaptureStackBackTrace(BackTrace, UE_ARRAY_COUNT(BackTrace));
-		static const TArray<FString> ModuleBlackList =
+		static const TSet<FString> ModuleBlackList =
 		{
 			TEXT("UnrealEditor-CoreUObject.dll"),
 			TEXT("UnrealEditor-Core.dll"),
@@ -274,6 +280,7 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 	case ESandCoreLogVerbosity::VeryVerbose:
 		UE_LOG(LogSandGame, VeryVerbose, TEXT("%s"), *FinalLogString);
 		break;
+	default: unimplemented();
 	}
 #endif
 }

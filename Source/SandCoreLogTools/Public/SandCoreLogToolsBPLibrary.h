@@ -8,7 +8,7 @@
 SANDCORELOGTOOLS_API DECLARE_LOG_CATEGORY_EXTERN(LogSandGame, Log, All);
 
 #define CONTEXT(Format, ...) \
-	USandCoreLogToolsBPLibrary::GetContext(this, FString::Printf(TEXT(Format), ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__))
+	USandCoreLogToolsBPLibrary::GetCallerContext(this, FString::Printf(TEXT(Format), ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__))
 
 /** Use like a normal UE_LOG. eg. SAND_LOG(LogTemp, Warning, TEXT("MyNum=%.2f IsCrouching=%s"), Num, *LexToString(bIsCrouching));*/
 #define SAND_LOG(Cat, Verbosity, Format, ...) \
@@ -19,6 +19,7 @@ SANDCORELOGTOOLS_API DECLARE_LOG_CATEGORY_EXTERN(LogSandGame, Log, All);
 	UE_CLOG(Cond, Cat, Verbosity, TEXT("[%s] | \"" Format "\"\t | %s"), \
 	*USandCoreLogToolsBPLibrary::BuildPieRole(this), ##__VA_ARGS__, *USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(this, ANSI_TO_TCHAR(__FUNCTION__)))
 
+// todo: wip test this out
 #define SAND_LOGFMT(Cat, Verb, Fmt, ...) \
 	UE_LOGFMT(Cat, Verb, \
 	"[{Net}] | \"{Msg}\" | {Func}", \
