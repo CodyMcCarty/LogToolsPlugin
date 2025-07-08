@@ -79,95 +79,38 @@ FString USandCoreLogToolsBPLibrary::BuildPieRole(const UObject* WorldContextObje
 FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* WorldContextObject, const TCHAR* Function)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING
-
-	/* Use this?
-	if (GEditor)
+	/* Use this? if (GEditor)
 	{
 		if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEditor))
 		{
 			TOptional<FPlayInEditorSessionInfo> SessionInfo = EditorEngine->GetPlayInEditorSessionInfo();
 			double PlayRequestStartTime = SessionInfo->PlayRequestStartTime;
-			double PlayRequestStartTime_StudioAnalytics = SessionInfo->PlayRequestStartTime_StudioAnalytics;
-			int32 PieInstanceCount = SessionInfo->PIEInstanceCount;
-			int32 NumViewportInstancesCreated = SessionInfo->NumViewportInstancesCreated;
-			int32 NumClientInstancesCreated = SessionInfo->NumClientInstancesCreated;
-			int32 NumOutstandingPieLogins = SessionInfo->NumOutstandingPIELogins;
-			bool bStartedInSpectatorMode = SessionInfo->bStartedInSpectatorMode;
-			bool bUsingOnlinePlatform = SessionInfo->bUsingOnlinePlatform;
-			bool bAnyBlueprintErrors = SessionInfo->bAnyBlueprintErrors;
-			bool bServerWasLaunched = SessionInfo->bServerWasLaunched;
-			bool bLateJoinRequested = SessionInfo->bLateJoinRequested;
-		}
-	}
-	*/
+			// ... */
 
 	FStringBuilderBase Result; // todo reserve
 	Result.Append(Function);
 
-	//~ true = this removes the clickable links in the log that go to code in IDE, but pipe deliminates the caller.
-	constexpr bool bDoFunctionSplit = false;
-	if (bDoFunctionSplit)
-	{
-		FString FuncStr(Function);
-		FString CallingClass, CallingFunc;
-		bool bSplit = FuncStr.Split(TEXT("::"), &CallingClass, &CallingFunc);
-		ensure(bSplit);
-		if (!bSplit)
-		{
-			CallingClass = FuncStr;
-			CallingFunc = TEXT("NA");
-		}
-	}
-
-	// FString OutlinerName(TEXT("Label Unavailable"));
 	Result.Append(TEXT(" | "));
-	if (WorldContextObject)
+	if (!WorldContextObject)
+	{
+		Result.Append(TEXT("Label Unavailable"));
+	}
+	else
 	{
 		// todo: spawned in vs placed with _C? update code and docs
 		if (const AActor* Actor = Cast<const AActor>(WorldContextObject))
 		{
-			// OutlinerName = Actor->GetActorNameOrLabel();
 			Result.Append(Actor->GetActorNameOrLabel());
 		}
 		else if (const AActor* TypedOuter = WorldContextObject->GetTypedOuter<AActor>(); ensure(TypedOuter))
 		{
-			// OutlinerName = TypedOuter->GetActorNameOrLabel();
 			Result.Append(TypedOuter->GetActorNameOrLabel());
 		}
 		else
 		{
-			// OutlinerName = WorldContextObject->GetName();
 			Result.Append(WorldContextObject->GetName());
 		}
 	}
-	else
-	{
-		Result.Append(TEXT("Label Unavailable"));
-	}
-
-	/*FString LastBpCall(TEXT("EmptyBPStack"));
-	if (!FBlueprintContextTracker::Get().GetCurrentScriptStack().IsEmpty())
-	{
-		const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
-		UFunction* LastFunction = ScriptStack.Last()->Node;
-
-		FString String = LastFunction->GetPackage()->GetName();
-		FString NameSafe = GetNameSafe(LastFunction->GetPackage()->GetClass());
-		FName FName = LastFunction->GetPackage()->GetFName();
-		ensure(false); // todo: What's the bp class name
-
-		FString FuncScope = LastFunction->GetName();
-		if (FuncScope.Contains(TEXT("ExecuteUbergraph")) && ScriptStack.Num() >= 2)
-		{
-			const FFrame* SecondToLast = ScriptStack[ScriptStack.Num() - 2];
-			FString FuncScope2 = SecondToLast->Node->GetName();
-			if (!FuncScope2.Contains(TEXT("ExecuteUbergraph")))
-			{
-				FuncScope = FString::Printf(TEXT("%s"), *SecondToLast->Node->GetName());
-			}
-		}
-		LastBpCall = FString::Printf(TEXT("%s..%s"), *String, *FuncScope);
-	}*/
 
 	Result.Append(TEXT(" | "));
 	if (FBlueprintContextTracker::Get().GetCurrentScriptStack().IsEmpty())
@@ -181,12 +124,10 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 		//~ NOTE: WorldContextObject->GetClass()->GetFName(); //"BP_MyActor_C"
 		if (!ScriptStack.Last()->Node->GetName().Contains(TEXT("ExecuteUbergraph")))
 		{
-			// Result.Appendf(TEXT("%s..%s"), *ScriptStack.Last()->Node->GetPackage()->GetFName().ToString(), *ScriptStack.Last()->Node->GetName());
 			Result << ScriptStack.Last()->Node->GetPackage()->GetFName() << TEXT("..") << ScriptStack.Last()->Node->GetName();
 		}
 		else if (ScriptStack.Num() >= 2 && !ScriptStack[ScriptStack.Num() - 2]->Node->GetName().Contains(TEXT("ExecuteUbergraph")))
 		{
-			// Result.Appendf(TEXT("%s..%s"), *ScriptStack.Last()->Node->GetPackage()->GetFName().ToString(), *ScriptStack[ScriptStack.Num() - 2]->Node->GetName());
 			Result << ScriptStack.Last()->Node->GetPackage()->GetFName() << TEXT("..") << ScriptStack[ScriptStack.Num() - 2]->Node->GetName();
 		}
 		else
@@ -194,11 +135,6 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 			Result.Append(ScriptStack.Last()->Node->GetName());
 		}
 	}
-
-	//~ [Client 1] | "msg" | ((class::func | outlinername | LastBpCall))
-	// FString Result = FString::Printf(TEXT("%s | %s | %s"),
-	// 	Function, *OutlinerName, *LastBpCall
-	// );
 
 	return FString(Result.ToString());
 
@@ -209,28 +145,10 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 
 void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObject, ESandCoreLogVerbosity Verbosity/*Log*/, const FText Message/*Hello*/)
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING //~ Do not Print in Shipping or Test unless explictly enabled.
-	// FString ShortRoleDescription = BuildPieRole(WorldContextObject);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING //~ Do not Print in Shipping or Test unless explicitly enabled.
+	// todo: test with USE_LOGGING_IN_SHIPPING
 	FStringBuilderBase Result;
-	// Result.Append(BuildPieRole(WorldContextObject));
 	Result << TEXT("[") << BuildPieRole(WorldContextObject) << TEXT("]");
-
-	// FString BPCallStack = WorldContextObject->GetClass()->GetName();
-	// if (!FBlueprintContextTracker::Get().GetCurrentScriptStack().IsEmpty())
-	// {
-	// 	const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
-	// 	FString FuncScope = ScriptStack.Last()->Node->GetName();
-	// 	if (FuncScope.Contains(TEXT("ExecuteUbergraph")) && ScriptStack.Num() >= 2)
-	// 	{
-	// 		const FFrame* SecondToLast = ScriptStack[ScriptStack.Num() - 2];
-	// 		FString FuncScope2 = SecondToLast->Node->GetName();
-	// 		if (!FuncScope2.Contains(TEXT("ExecuteUbergraph")))
-	// 		{
-	// 			FuncScope = FString::Printf(TEXT("%s"), *SecondToLast->Node->GetName());
-	// 		}
-	// 	}
-	// 	BPCallStack += ".." + FuncScope;
-	// }
 
 	Result << TEXT(" | \"") << Message.ToString() << TEXT("\"\t");
 
@@ -263,45 +181,26 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 		}
 	}
 
-	// FString OutlinerName(TEXT("No Label"));
-	// if (WorldContextObject)
-	// {
-	// 	if (const AActor* Actor = Cast<const AActor>(WorldContextObject))
-	// 	{
-	// 		OutlinerName = Actor->GetActorNameOrLabel();
-	// 	}
-	// 	else if (AActor* TypedOuter = WorldContextObject->GetTypedOuter<AActor>(); ensure(TypedOuter))
-	// 	{
-	// 		OutlinerName = TypedOuter->GetActorNameOrLabel();
-	// 	}
-	// 	else
-	// 	{
-	// 		OutlinerName = WorldContextObject->GetName();
-	// 	}
-	// }
 	Result.Append(TEXT(" | "));
-	if (WorldContextObject)
+	if (!WorldContextObject)
+	{
+		Result.Append(TEXT("Label Unavailable"));
+	}
+	else
 	{
 		// todo: spawned in vs placed with _C? update code and docs
 		if (const AActor* Actor = Cast<const AActor>(WorldContextObject))
 		{
-			// OutlinerName = Actor->GetActorNameOrLabel();
 			Result.Append(Actor->GetActorNameOrLabel());
 		}
 		else if (const AActor* TypedOuter = WorldContextObject->GetTypedOuter<AActor>(); ensure(TypedOuter))
 		{
-			// OutlinerName = TypedOuter->GetActorNameOrLabel();
 			Result.Append(TypedOuter->GetActorNameOrLabel());
 		}
 		else
 		{
-			// OutlinerName = WorldContextObject->GetName();
 			Result.Append(WorldContextObject->GetName());
 		}
-	}
-	else
-	{
-		Result.Append(TEXT("Label Unavailable"));
 	}
 
 	Result.Append(TEXT(" | "));
@@ -341,11 +240,6 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 		}
 	}
 	Result.Append(LastCppCall);
-
-	// const FString FinalLogString = FString::Printf(TEXT("[%s] | \"%s\"\t | %s | %s | %s"),
-	// 	*ShortRoleDescription, *Message.ToString(),
-	// 	*BPCallStack, *OutlinerName, *LastCppCall
-	// );
 
 	const FString FinalLogString = Result.ToString();
 

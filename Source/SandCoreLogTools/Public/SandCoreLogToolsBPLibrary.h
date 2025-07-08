@@ -34,13 +34,13 @@ enum class ESandCoreLogVerbosity : uint8
 	Fatal,
 
 	/** 
-	 * Prints an error to console (and log file). 
+	 * Prints an error to console and onscreen message. (and log file). 
 	 * Commandlets and the editor collect and report errors. Error messages result in commandlet failure.
 	 */
 	Error,
 
 	/** 
-	 * Prints a warning to console (and log file).
+	 * Prints a warning to console and onscreen message (and log file).
 	 * Commandlets and the editor collect and report warnings. Warnings can be treated as an error.
 	 */
 	Warning,
@@ -94,12 +94,14 @@ class SANDCORELOGTOOLS_API USandCoreLogToolsBPLibrary : public UBlueprintFunctio
 	GENERATED_BODY()
 
 public:
-	/** You're probably looking for the macro `CONTEXT` */
-	static FString GetCallerContext(const UObject* WorldContextObject, const FString& Message,const TCHAR* Function);
+	/** You're probably looking for the macro `CONTEXT` above */
+	static FString GetCallerContext(const UObject* WorldContextObject, const FString& Message, const TCHAR* Function);
+
 	/** Is used by the SAND_LOG() macro. Generally returns "Server" or "Client #" */
 	static FString BuildPieRole(const UObject* WorldContextObject);
+
 	/** Is used by the SAND_LOG() macro. Returns the caller's function, Actor label, and the last BP call. Function should be `ANSI_TO_TCHAR(__FUNCTION__)` */
-	static FString BuildStackInfoWithLabel(const UObject* WorldContextObject,const TCHAR* Function);
+	static FString BuildStackInfoWithLabel(const UObject* WorldContextObject, const TCHAR* Function);
 
 	/**
 	 * Logs a message with enhanced contextual information.
@@ -114,7 +116,7 @@ public:
 	 * Additional Behavior:
 	 * - Warnings and errors will also display on screen (in addition to the output log)
 	 * - Output is pipe-delimited (|) for easy export to spreadsheets
-	 * - (todo: is this correct?)Actor labels with '_C' indicate spawned Blueprints (which appear yellow in the World Outliner)
+	 * - (todo: is this correct?) Actor labels with '_C' indicate spawned Blueprints (which appear yellow in the World Outliner)
 	 *
 	 * Usage Notes:
 	 * - Meant for development/debugging only (hidden in shipping builds)
