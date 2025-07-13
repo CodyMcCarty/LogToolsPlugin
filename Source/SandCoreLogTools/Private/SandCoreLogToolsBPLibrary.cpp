@@ -6,14 +6,16 @@ DEFINE_LOG_CATEGORY(LogBPGame);
 
 FString USandCoreLogToolsBPLibrary::GetCallerContext(const UObject* WorldContextObject, const FString& Message, const TCHAR* Function)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING
 	if (WorldContextObject)
 	{
-		FString Result = FString::Printf(TEXT("[%s] | \"%s\"\t | %s"),
+		FString Result = FString::Printf(TEXT("\t [%s] | \"%s\"\t | %s"),
 			*BuildPieRole(WorldContextObject),
 			*Message,
 			*BuildStackInfoWithLabel(WorldContextObject, Function));
 		return Result;
 	}
+#endif
 	return Message;
 }
 
@@ -92,9 +94,9 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 			// ... */
 
 	TStringBuilder<256> Result; // todo reserve
-	Result << TEXT("Cpp: ") << Function;
+	Result << TEXT("Cpp=") << Function;
 
-	Result.Append(TEXT(" | Label: "));
+	Result.Append(TEXT(" | Label="));
 	if (!WorldContextObject)
 	{
 		Result.Append(TEXT("NA"));
@@ -117,7 +119,7 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 		}
 	}
 
-	Result.Append(TEXT(" | BP: "));
+	Result.Append(TEXT(" | BP="));
 	const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
 	if (ScriptStack.IsEmpty())
 	{
@@ -154,11 +156,11 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING //~ Do not Print in Shipping or Test unless explicitly enabled.
 	// todo: test with USE_LOGGING_IN_SHIPPING
 	TStringBuilder<512> Result;
-	Result << TEXT("[") << BuildPieRole(WorldContextObject) << TEXT("]");
+	Result << TEXT("\t [") << BuildPieRole(WorldContextObject) << TEXT("]");
 
 	Result << TEXT(" | \"") << Message.ToString() << TEXT("\"\t");
 
-	Result.Append(TEXT(" | BP: "));
+	Result.Append(TEXT(" | BP="));
 	const TArrayView<const FFrame* const> ScriptStack = FBlueprintContextTracker::Get().GetCurrentScriptStack();
 	if (ScriptStack.IsEmpty())
 	{
@@ -187,7 +189,7 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 		}
 	}
 
-	Result.Append(TEXT(" | Label: "));
+	Result.Append(TEXT(" | Label="));
 	if (!WorldContextObject)
 	{
 		Result.Append(TEXT("Label Unavailable"));
@@ -209,7 +211,7 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 		}
 	}
 
-	Result.Append(TEXT(" | Cpp: "));
+	Result.Append(TEXT(" | Cpp="));
 	FString LastCppCall(TEXT("No Useful Symbol"));
 	{
 		constexpr int32 MaxDepth = 32;

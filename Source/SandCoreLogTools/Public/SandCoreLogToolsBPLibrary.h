@@ -7,32 +7,38 @@
 
 SANDCORELOGTOOLS_API DECLARE_LOG_CATEGORY_EXTERN(LogBPGame, Log, All);
 
+#if !NO_LOGGING
 /** Use like a normal UE_LOG. eg. INFO_LOG(LogTemp, Warning, TEXT("MyNum=%.2f IsCrouching=%s"), Num, *LexToString(bIsCrouching)); */
 #define INFO_LOG(CategoryName, Verbosity, Format, ...) \
 	{ \
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING \
 		FString _MyLogMsgWithContextInfo = USandCoreLogToolsBPLibrary::GetCallerContext(this, FString::Printf(Format, ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__)); \
 		UE_LOG(CategoryName, Verbosity, TEXT("%s"), *_MyLogMsgWithContextInfo); \
-#else \
-		UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); \
-#endif \
-	}
+	};
 
 /** Use like a normal UE_CLOG. eg. INFO_CLOG(bMyCondition, LogTemp, Warning, TEXT("MyNum=%.2f IsCrouching=%s"), Num, *LexToString(bIsCrouching)); */
 #define INFO_CLOG(Condition, CategoryName, Verbosity, Format, ...) \
 	{ \
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING \
-		FString _MyLogMsgWithContextInfo = USandCoreLogToolsBPLibrary::GetCallerContext(this, FString::Printf(Format, ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__)); \
-		UE_CLOG(Condition, CategoryName, Verbosity, TEXT("%s"), *_MyLogMsgWithContextInfo); \
-#else \
-		UE_CLOG(Condition, CategoryName, Verbosity, Format, ##__VA_ARGS__); \
-#endif \
+		if (Condition) \
+		{ \
+			FString _MyLogMsgWithContextInfo = USandCoreLogToolsBPLibrary::GetCallerContext(this, FString::Printf(Format, ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__)); \
+			UE_CLOG(Condition, CategoryName, Verbosity, TEXT("%s"), *_MyLogMsgWithContextInfo); \
+		} \
+		else { UE_CLOG(Condition, CategoryName, Verbosity, Format, ##__VA_ARGS__); } \
 	}
+#else
+#define INFO_LOG(CategoryName, Verbosity, Format, ...) \
+	UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__);
+
+#define INFO_CLOG(Condition, CategoryName, Verbosity, Format, ...) \
+	UE_CLOG(Condition, CategoryName, Verbosity, Format, ##__VA_ARGS__);
+#endif
+
 
 /** todo WIP */
 // #define INFO_LOGFMT()
 
 /* todo:
+ * I'm unsure about #if !NO_LOGGING. Is that the correct one? Test by making a heavy function in shipping.
  * more tests in BP.
  * FunctionLibrary & WorldContextObject? Consider passing a ContextObject to a macro. This could cover any other case I couldn't think of.
  * more test in shipping & shipping with logging.
