@@ -2,7 +2,7 @@
 
 #include "SandCoreLogToolsBPLibrary.h"
 
-DEFINE_LOG_CATEGORY(LogSandGame);
+DEFINE_LOG_CATEGORY(LogBPGame);
 
 FString USandCoreLogToolsBPLibrary::GetCallerContext(const UObject* WorldContextObject, const FString& Message, const TCHAR* Function)
 {
@@ -97,7 +97,7 @@ FString USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(const UObject* World
 	Result.Append(TEXT(" | Label: "));
 	if (!WorldContextObject)
 	{
-		Result.Append(TEXT("Label Unavailable"));
+		Result.Append(TEXT("NA"));
 	}
 	else
 	{
@@ -252,33 +252,33 @@ void USandCoreLogToolsBPLibrary::SandCoreLogGame(const UObject* WorldContextObje
 	switch (Verbosity)
 	{
 	case ESandCoreLogVerbosity::Fatal:
-		UE_LOG(LogSandGame, Fatal, TEXT("%s"), *FinalLogString);
+		UE_LOG(LogBPGame, Fatal, TEXT("%s"), *FinalLogString);
 		break;
 	case ESandCoreLogVerbosity::Error:
 		{
 			const uint64 Key = GetTypeHash(GetNameSafe(WorldContextObject));
 			GEngine->AddOnScreenDebugMessage(Key, 10.f, FColor::Red, FinalLogString);
-			UE_LOG(LogSandGame, Error, TEXT("%s"), *FinalLogString);
+			UE_LOG(LogBPGame, Error, TEXT("%s"), *FinalLogString);
 		}
 		break;
 	case ESandCoreLogVerbosity::Warning:
 		{
 			const uint64 Key = GetTypeHash(GetNameSafe(WorldContextObject));
 			GEngine->AddOnScreenDebugMessage(Key, 10.f, FColor::Orange, FinalLogString);
-			UE_LOG(LogSandGame, Warning, TEXT("%s"), *FinalLogString);
+			UE_LOG(LogBPGame, Warning, TEXT("%s"), *FinalLogString);
 		}
 		break;
 	case ESandCoreLogVerbosity::Display:
-		UE_LOG(LogSandGame, Display, TEXT("%s"), *FinalLogString);
+		UE_LOG(LogBPGame, Display, TEXT("%s"), *FinalLogString);
 		break;
 	case ESandCoreLogVerbosity::Log:
-		UE_LOG(LogSandGame, Log, TEXT("%s"), *FinalLogString);
+		UE_LOG(LogBPGame, Log, TEXT("%s"), *FinalLogString);
 		break;
 	case ESandCoreLogVerbosity::Verbose:
-		UE_LOG(LogSandGame, Verbose, TEXT("%s"), *FinalLogString);
+		UE_LOG(LogBPGame, Verbose, TEXT("%s"), *FinalLogString);
 		break;
 	case ESandCoreLogVerbosity::VeryVerbose:
-		UE_LOG(LogSandGame, VeryVerbose, TEXT("%s"), *FinalLogString);
+		UE_LOG(LogBPGame, VeryVerbose, TEXT("%s"), *FinalLogString);
 		break;
 	default: unimplemented();
 	}

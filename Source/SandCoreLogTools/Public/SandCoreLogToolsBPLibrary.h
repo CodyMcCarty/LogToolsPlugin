@@ -5,29 +5,41 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SandCoreLogToolsBPLibrary.generated.h"
 
-SANDCORELOGTOOLS_API DECLARE_LOG_CATEGORY_EXTERN(LogSandGame, Log, All);
+SANDCORELOGTOOLS_API DECLARE_LOG_CATEGORY_EXTERN(LogBPGame, Log, All);
 
-#define CONTEXT(Format, ...) \
-	USandCoreLogToolsBPLibrary::GetCallerContext(this, FString::Printf(TEXT(Format), ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__))
+/** Use like a normal UE_LOG. eg. INFO_LOG(LogTemp, Warning, TEXT("MyNum=%.2f IsCrouching=%s"), Num, *LexToString(bIsCrouching)); */
+#define INFO_LOG(CategoryName, Verbosity, Format, ...) \
+	{ \
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING \
+		FString _MyLogMsgWithContextInfo = USandCoreLogToolsBPLibrary::GetCallerContext(this, FString::Printf(Format, ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__)); \
+		UE_LOG(CategoryName, Verbosity, TEXT("%s"), *_MyLogMsgWithContextInfo); \
+#else \
+		UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); \
+#endif \
+	}
 
-/** Use like a normal UE_LOG. eg. SAND_LOG(LogTemp, Warning, TEXT("MyNum=%.2f IsCrouching=%s"), Num, *LexToString(bIsCrouching));*/
-#define SAND_LOG(Cat, Verbosity, Format, ...) \
-	UE_LOG(Cat, Verbosity, TEXT("[%s] | \"" Format "\"\t | %s"), \
-	*USandCoreLogToolsBPLibrary::BuildPieRole(this), ##__VA_ARGS__, *USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(this, ANSI_TO_TCHAR(__FUNCTION__)))
+/** Use like a normal UE_CLOG. eg. INFO_CLOG(bMyCondition, LogTemp, Warning, TEXT("MyNum=%.2f IsCrouching=%s"), Num, *LexToString(bIsCrouching)); */
+#define INFO_CLOG(Condition, CategoryName, Verbosity, Format, ...) \
+	{ \
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || USE_LOGGING_IN_SHIPPING \
+		FString _MyLogMsgWithContextInfo = USandCoreLogToolsBPLibrary::GetCallerContext(this, FString::Printf(Format, ##__VA_ARGS__), ANSI_TO_TCHAR(__FUNCTION__)); \
+		UE_CLOG(Condition, CategoryName, Verbosity, TEXT("%s"), *_MyLogMsgWithContextInfo); \
+#else \
+		UE_CLOG(Condition, CategoryName, Verbosity, Format, ##__VA_ARGS__); \
+#endif \
+	}
 
-#define SAND_CLOG(Cond, Cat, Verbosity, Format, ...) \
-	UE_CLOG(Cond, Cat, Verbosity, TEXT("[%s] | \"" Format "\"\t | %s"), \
-	*USandCoreLogToolsBPLibrary::BuildPieRole(this), ##__VA_ARGS__, *USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(this, ANSI_TO_TCHAR(__FUNCTION__)))
+/** todo WIP */
+// #define INFO_LOGFMT()
 
-// todo: wip test this out
-#define SAND_LOGFMT(Cat, Verb, Fmt, ...) \
-	UE_LOGFMT(Cat, Verb, \
-	"[{Net}] | \"{Msg}\" | {Func}", \
-	("Net",  *USandCoreLogToolsBPLibrary::BuildPieRole(this)), \
-	("Msg",  FString::Format(Fmt, __VA_ARGS__)), \
-	("Func", *USandCoreLogToolsBPLibrary::BuildStackInfoWithLabel(this, ANSI_TO_TCHAR(__FUNCTION__))))
+/* todo:
+ * more tests in BP.
+ * FunctionLibrary & WorldContextObject? Consider passing a ContextObject to a macro. This could cover any other case I couldn't think of.
+ * more test in shipping & shipping with logging.
+ * BP CLOG when I need one.
+ * /
 
-/** Enum that defines the verbosity levels of the logging system. */
+/** Enum that mirrors the verbosity levels of the logging system for BP. */
 UENUM(BlueprintType)
 enum class ESandCoreLogVerbosity : uint8
 {
@@ -78,7 +90,7 @@ enum class ESandCoreLogVerbosity : uint8
  *   - Last relevant Blueprint or C++ call in the call stack
  * - Supports both Blueprint and C++ usage via:
  *   - A Blueprint-callable `LogGame()` function
- *   - A C++ macro `LOG_GAME(...)` for convenient use in native code
+ *   - A C++ macro `INFO_LOG(...)` for convenient use in native code
  *
  * Intended Usage:
  * - Helpful for debugging multiplayer games with replicated actors
@@ -86,8 +98,8 @@ enum class ESandCoreLogVerbosity : uint8
  * - Works in both PIE and standalone modes
  *
  * Limitations:
- * - Should be used in development builds only
- * - Not intended for performance-critical code (hidden in shipping builds)
+ * - Is used in development builds only
+ * - Not intended for performance-critical code due to overhead of getting contextual info.
  */
 UCLASS()
 class SANDCORELOGTOOLS_API USandCoreLogToolsBPLibrary : public UBlueprintFunctionLibrary
@@ -95,13 +107,13 @@ class SANDCORELOGTOOLS_API USandCoreLogToolsBPLibrary : public UBlueprintFunctio
 	GENERATED_BODY()
 
 public:
-	/** You're probably looking for the macro `CONTEXT` above */
+	/** You're probably looking for the macro `INFO_LOG()` above */
 	static FString GetCallerContext(const UObject* WorldContextObject, const FString& Message, const TCHAR* Function);
 
-	/** Is used by the SAND_LOG() macro. Generally returns "Server" or "Client #" */
+	/** Is used by the INFO_LOG() macro. Generally returns "Server T" or "Client #" */
 	static FString BuildPieRole(const UObject* WorldContextObject);
 
-	/** Is used by the SAND_LOG() macro. Returns the caller's function, Actor label, and the last BP call. Function should be `ANSI_TO_TCHAR(__FUNCTION__)` */
+	/** Is used by the INFO_LOG() macro. Returns the caller's function, Actor label, and the last BP call. Function should be `ANSI_TO_TCHAR(__FUNCTION__)` */
 	static FString BuildStackInfoWithLabel(const UObject* WorldContextObject, const TCHAR* Function);
 
 	/**
@@ -123,6 +135,7 @@ public:
 	 * - Meant for development/debugging only (hidden in shipping builds)
 	 *		- Best avoid use in tick for performance reasons
 	 * - Ideal for multiplayer debugging to identify which instance or player context logged the message
+	 * - Uses the log category 'LogBPGame'
 	 *
 	 * @param Verbosity The severity level (Log, Warning, Error, etc.)
 	 * @param Message The message text to display/log
